@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crop Suitability Map</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <style>
+    :root {
+      --ink: #173126;
+      --muted: #5f776d;
+      --line: rgba(27, 63, 45, 0.12);
+      --card: rgba(255, 255, 255, 0.9);
+      --card-strong: #ffffff;
+      --accent: #1d7b55;
+      --accent-soft: #dbefe5;
+      --warm: #8c5b18;
+      --warm-soft: #fbefda;
+      --shadow: 0 22px 50px rgba(17, 45, 34, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Manrope", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(155, 205, 174, 0.5), transparent 24%),
+        linear-gradient(180deg, #eff5ec 0%, #e4eee3 100%);
+    }
+
+    .map-shell {
+      position: relative;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .map-tip {
+      position: absolute;
+      z-index: 700;
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .map-tip {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .map-tip {
+      top: 18px;
+      right: 18px;
+      max-width: 320px;
+      padding: 14px 16px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .leaflet-popup-content-wrapper {
+      border-radius: 26px;
+      background: transparent;
+      box-shadow: 0 24px 50px rgba(14, 35, 27, 0.22);
+      padding: 0;
+    }
+
+    .leaflet-popup-tip {
+      background: #ffffff;
+    }
+
+    .leaflet-popup-content {
+      margin: 0;
+      width: 460px !important;
+      font-family: "Manrope", sans-serif;
+    }
+
+    .popup-card {
+      background:
+        radial-gradient(circle at top left, rgba(189, 223, 204, 0.35), transparent 26%),
+        linear-gradient(180deg, rgba(250, 252, 248, 0.98) 0%, rgba(242, 247, 243, 0.98) 100%);
+      padding: 18px;
+    }
+
+    .popup-card.error {
+      background:
+        radial-gradient(circle at top left, rgba(246, 214, 166, 0.45), transparent 26%),
+        linear-gradient(180deg, rgba(255, 251, 244, 0.98) 0%, rgba(255, 248, 239, 0.98) 100%);
+    }
+
+    .popup-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .popup-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .popup-kicker {
+      display: inline-flex;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .popup-card.error .popup-kicker {
+      background: var(--warm-soft);
+      color: var(--warm);
+    }
+
+    .popup-title {
+      margin: 10px 0 6px;
+      font-size: 1.28rem;
+      line-height: 1;
+      letter-spacing: -0.03em;
+    }
+
+    .popup-summary {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .source-pill {
+      padding: 8px 11px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.95);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .voice-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.96);
+      color: var(--accent);
+      cursor: pointer;
+      transition: transform 0.16s ease, background 0.16s ease;
+    }
+
+    .voice-button:hover {
+      transform: translateY(-1px);
+      background: #ffffff;
+    }
+
+    .voice-button:active {
+      transform: translateY(0);
+    }
+
+    .voice-button svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .popup-meta {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .meta-cell {
+      padding: 12px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.82);
+      border: 1px solid var(--line);
+    }
+
+    .meta-cell strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .popup-table-wrap {
+      overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: var(--card-strong);
+    }
+
+    .popup-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .popup-table th,
+    .popup-table td {
+      text-align: left;
+      padding: 14px 12px;
+      vertical-align: top;
+    }
+
+    .popup-table thead th {
+      font-size: 0.77rem;
+      font-weight: 800;
+      color: var(--muted);
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      background: rgba(246, 249, 244, 0.96);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .popup-table tbody tr:not(:last-child) td {
+      border-bottom: 1px solid rgba(27, 63, 45, 0.09);
+    }
+
+    .popup-table tbody tr:first-child td {
+      background: rgba(219, 239, 229, 0.36);
+    }
+
+    .popup-table td:first-child {
+      font-weight: 800;
+      color: #1c3127;
+    }
+
+    .popup-table td:nth-child(2) {
+      font-weight: 800;
+      color: var(--accent);
+      white-space: nowrap;
+    }
+
+    .popup-note {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .loading-dots {
+      display: inline-flex;
+      gap: 6px;
+      margin-top: 14px;
+    }
+
+    .loading-dots span {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--accent);
+      opacity: 0.35;
+      animation: pulse 1.1s infinite ease-in-out;
+    }
+
+    .loading-dots span:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    .loading-dots span:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.25; transform: translateY(0); }
+      50% { opacity: 1; transform: translateY(-2px); }
+    }
+
+    @media (max-width: 640px) {
+      .map-tip {
+        display: none;
+      }
+
+      .leaflet-popup-content {
+        width: 320px !important;
+      }
+
+      .popup-meta {
+        grid-template-columns: 1fr;
+      }
+
+      .popup-table th,
+      .popup-table td {
+        padding: 12px 10px;
+        font-size: 0.88rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="map-shell">
+    <aside class="map-tip">
+      {{ model_name }}. Desert zones, lakes, buildings, and off-mainland clicks are blocked. Use the speaker icon in the popup to hear the prediction.
+    </aside>
+
+    <div id="map"></div>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    const map = L.map("map", {
+      zoomControl: true,
+      minZoom: 4
+    }).setView([22.8, 79.2], 5);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    const allowedBounds = L.latLngBounds(
+      L.latLng(6.0, 68.0),
+      L.latLng(37.5, 97.5)
+    );
+
+    const popupOptions = {
+      maxWidth: 500,
+      className: "prediction-popup-shell",
+      autoPanPadding: [26, 26]
+    };
+
+    let marker;
+    let latestPrediction = null;
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, (char) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        "\"": "&quot;",
+        "'": "&#39;"
+      }[char]));
+    }
+
+    function renderLoadingPopup(lat, lng) {
+      return `
+        <div class="popup-card">
+          <div class="popup-top">
+            <div>
+              <span class="popup-kicker">Checking land point</span>
+              <h3 class="popup-title">Running prediction</h3>
+              <p class="popup-summary">${lat.toFixed(4)}, ${lng.toFixed(4)}</p>
+            </div>
+            <span class="source-pill">Working</span>
+          </div>
+          <p class="popup-note">Validating land, building exclusion, and the top 3 options from the backend.</p>
+          <div class="loading-dots" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderBlockedPopup(reason, lat, lng) {
+      return `
+        <div class="popup-card error">
+          <div class="popup-top">
+            <div>
+              <span class="popup-kicker">Blocked location</span>
+              <h3 class="popup-title">Prediction not available</h3>
+              <p class="popup-summary">${escapeHtml(reason)}</p>
+            </div>
+            <span class="source-pill">Blocked</span>
+          </div>
+          <div class="popup-meta">
+            <div class="meta-cell">
+              <strong>Latitude</strong>
+              <span>${lat.toFixed(4)}</span>
+            </div>
+            <div class="meta-cell">
+              <strong>Longitude</strong>
+              <span>${lng.toFixed(4)}</span>
+            </div>
+          </div>
+          <p class="popup-note">Try a nearby mainland farm location instead of a lake, desert, or unsupported point.</p>
+        </div>
+      `;
+    }
+
+    function renderPredictionPopup(data) {
+      const rows = data.result.crops.map((crop) => `
+        <tr>
+          <td>${escapeHtml(crop.name)}</td>
+          <td>${escapeHtml(crop.probability)}%</td>
+          <td>${escapeHtml(crop.investment_inr_per_acre)}</td>
+          <td>${escapeHtml(crop.time_to_yield)}</td>
+        </tr>
+      `).join("");
+
+      return `
+        <div class="popup-card">
+          <div class="popup-top">
+            <div>
+              <span class="popup-kicker">Validated land point</span>
+              <h3 class="popup-title">${escapeHtml(data.result.summary)}</h3>
+              <p class="popup-summary">Popup-only result for ${escapeHtml(data.location.lat)}, ${escapeHtml(data.location.lng)}</p>
+            </div>
+            <div class="popup-actions">
+              <button class="voice-button" type="button" data-speak-prediction aria-label="Read prediction aloud" title="Read prediction aloud">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7"></path>
+                  <path d="M18.5 5.5a9 9 0 0 1 0 13"></path>
+                </svg>
+              </button>
+              <span class="source-pill">${data.source === "ollama" ? "Ollama" : "Fallback"}</span>
+            </div>
+          </div>
+          <div class="popup-meta">
+            <div class="meta-cell">
+              <strong>Zone</strong>
+              <span>${escapeHtml(data.profile.zone_name)}</span>
+            </div>
+            <div class="meta-cell">
+              <strong>Climate</strong>
+              <span>${escapeHtml(data.profile.rainfall)} rain, ${escapeHtml(data.profile.temperature)}</span>
+            </div>
+          </div>
+          <div class="popup-table-wrap">
+            <table class="popup-table">
+              <thead>
+                <tr>
+                  <th>Crop</th>
+                  <th>Probability</th>
+                  <th>Investment</th>
+                  <th>Yield</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <p class="popup-note">Top row is the strongest fit for this clicked land point.</p>
+        </div>
+      `;
+    }
+
+    function buildSpeechText(data) {
+      const intro = `Prediction output for latitude ${data.location.lat} and longitude ${data.location.lng}. ${data.result.summary}`;
+      const zone = `Zone ${data.profile.zone_name}. Climate ${data.profile.rainfall} rain and ${data.profile.temperature}.`;
+      const crops = data.result.crops.map((crop, index) =>
+        `Option ${index + 1}. ${crop.name}. Probability ${crop.probability} percent. Investment ${crop.investment_inr_per_acre}. Time to yield ${crop.time_to_yield}.`
+      ).join(" ");
+      return `${intro} ${zone} ${crops}`;
+    }
+
+    function speakLatestPrediction() {
+      if (!latestPrediction || !("speechSynthesis" in window)) {
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(buildSpeechText(latestPrediction));
+      utterance.rate = 0.96;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function renderErrorPopup() {
+      return `
+        <div class="popup-card error">
+          <div class="popup-top">
+            <div>
+              <span class="popup-kicker">Request failed</span>
+              <h3 class="popup-title">Backend unavailable</h3>
+              <p class="popup-summary">The popup could not load prediction data.</p>
+            </div>
+            <span class="source-pill">Error</span>
+          </div>
+          <p class="popup-note">Check whether Flask and Ollama are both running, then click again.</p>
+        </div>
+      `;
+    }
+
+    async function predict(lat, lng) {
+      const response = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng })
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        latestPrediction = null;
+        marker.bindPopup(renderBlockedPopup(data.reason || data.error || "Unsupported location.", lat, lng), popupOptions).openPopup();
+        return;
+      }
+
+      latestPrediction = data;
+      marker.bindPopup(renderPredictionPopup(data), popupOptions).openPopup();
+    }
+
+    document.addEventListener("click", (event) => {
+      const speakButton = event.target.closest("[data-speak-prediction]");
+      if (!speakButton) {
+        return;
+      }
+      speakLatestPrediction();
+    });
+
+    map.on("popupclose", () => {
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    });
+
+    map.on("click", async (event) => {
+      const { lat, lng } = event.latlng;
+
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      if (marker) {
+        marker.remove();
+      }
+
+      marker = L.marker([lat, lng], { riseOnHover: true }).addTo(map);
+      marker.bindPopup(renderLoadingPopup(lat, lng), popupOptions).openPopup();
+
+      if (!allowedBounds.contains(event.latlng)) {
+        latestPrediction = null;
+        marker.bindPopup(renderBlockedPopup("Outside supported India-focused bounds.", lat, lng), popupOptions).openPopup();
+        return;
+      }
+
+      try {
+        await predict(lat, lng);
+      } catch (error) {
+        marker.bindPopup(renderErrorPopup(), popupOptions).openPopup();
+      }
+    });
+  </script>
+</body>
+</html>
