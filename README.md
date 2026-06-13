@@ -44,4 +44,5 @@ python app.py
 - If Ollama is unavailable, the app falls back to a local heuristic crop list so the UI still works.
 
 ## Developed By 
-- Mandapaka Chinni Durga Vara Prasad
+- Mandapaka Chinni Durga Vara Prasad.
+- AIML Engineer 
