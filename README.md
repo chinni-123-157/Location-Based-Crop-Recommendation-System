@@ -42,3 +42,6 @@ python app.py
 
 - The location filter is India-focused and intentionally conservative.
 - If Ollama is unavailable, the app falls back to a local heuristic crop list so the UI still works.
+
+## Developed By 
+- Mandapaka Chinni Durga Vara Prasad
